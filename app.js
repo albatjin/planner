@@ -1,13 +1,13 @@
 // Initial Sample Data (Default)
 const DEFAULT_DATA = {
   tasks: [
-    { id: "t1", title: "Q4 사업계획서 임원 보고 자료 완성", priority: "A", completed: false, role: "직무/비즈니스", recurrence: { type: "none" } },
-    { id: "t2", title: "주요 클라이언트 계약서 법무 검토 요청", priority: "A", completed: false, role: "직무/비즈니스", recurrence: { type: "none" } },
-    { id: "t3", title: "주말 가족 여행 숙소 및 식당 예약", priority: "A", completed: true, role: "가족/관계", recurrence: { type: "none" } },
-    { id: "t4", title: "팀원 1:1 면담 (역량 개발 피드백)", priority: "B", completed: false, role: "직무/비즈니스", recurrence: { type: "custom", days: ["화", "목"] } },
-    { id: "t5", title: "헬스장 하체 루틴 운동 (1시간)", priority: "B", completed: false, role: "자기계발/건강", recurrence: { type: "daily" } },
-    { id: "t6", title: "생산성 향상 신간 도서 독서 (30분)", priority: "C", completed: false, role: "자기계발/건강", recurrence: { type: "weekdays" } },
-    { id: "t7", title: "서재 책상 및 데스크탑 정리", priority: "C", completed: false, role: "개인", recurrence: { type: "none" } }
+    { id: "t1", title: "Q4 사업계획서 임원 보고 자료 완성", priority: "A", completedDates: [], role: "직무/비즈니스", recurrence: { type: "none" } },
+    { id: "t2", title: "주요 클라이언트 계약서 법무 검토 요청", priority: "A", completedDates: [], role: "직무/비즈니스", recurrence: { type: "none" } },
+    { id: "t3", title: "주말 가족 여행 숙소 및 식당 예약", priority: "A", completedDates: ["2026-10-10"], role: "가족/관계", recurrence: { type: "none" } },
+    { id: "t4", title: "팀원 1:1 면담 (역량 개발 피드백)", priority: "B", completedDates: [], role: "직무/비즈니스", recurrence: { type: "custom", days: ["화", "목"] } },
+    { id: "t5", title: "헬스장 하체 루틴 운동 (1시간)", priority: "B", completedDates: [], role: "자기계발/건강", recurrence: { type: "daily" } },
+    { id: "t6", title: "생산성 향상 신간 도서 독서 (30분)", priority: "C", completedDates: [], role: "자기계발/건강", recurrence: { type: "weekdays" } },
+    { id: "t7", title: "서재 책상 및 데스크탑 정리", priority: "C", completedDates: [], role: "개인", recurrence: { type: "none" } }
   ],
   schedules: [
     { id: "s1", title: "Google Sync: 전략기획팀 주간 회의", startTime: "09:00", endTime: "10:30", type: "work" },
@@ -62,6 +62,28 @@ let editingScheduleId = null;
 let currentViewDate = new Date(2026, 9, 10); // 2026-10-10 (Base Demo Date)
 const TODAY_BASE_DATE = new Date(2026, 9, 10);
 
+// Helper: get current view date string (YYYY-MM-DD)
+function getCurViewDateStr() {
+  const year = currentViewDate.getFullYear();
+  const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
+  const date = String(currentViewDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+// Check if task is completed on a specific view date
+// - Only completed on the exact date(s) it was checked
+// - Other days (tomorrow, future, past) remain unchecked so the user can re-check as daily repeats
+function isTaskCompletedOnDate(task, dateStr) {
+  if (!task) return false;
+  if (Array.isArray(task.completedDates)) {
+    return task.completedDates.includes(dateStr);
+  }
+  if (task.completedDate) {
+    return task.completedDate === dateStr;
+  }
+  return false;
+}
+
 // Google Calendar Exclusive Monthly Events (Only past/today events, future removed per request)
 const GOOGLE_CALENDAR_EVENTS = [
   { id: "g1", date: "2026-10-06", time: "10:00 ~ 11:30", title: "구글 캘린더: Q4 제품 로드맵 회의", location: "Google Meet" },
@@ -76,6 +98,17 @@ let calSelectedDateStr = "2026-10-10";
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
+  // Clear obsolete service worker caches if present
+  if ("caches" in window) {
+    caches.keys().then((names) => {
+      names.forEach((name) => {
+        if (name !== "covey-modern-cache-v4") {
+          caches.delete(name);
+        }
+      });
+    });
+  }
+
   loadData();
   lucide.createIcons();
   setupEventListeners();
@@ -84,8 +117,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Register Service Worker for Complete Offline Support (Works even when PC is OFF)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").then(() => {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
       console.log("Service Worker Registered - Offline Mode Ready");
+      reg.update(); // Force check update
     }).catch((err) => {
       console.warn("Service Worker registration failed:", err);
     });
@@ -99,6 +141,20 @@ function loadData() {
   if (saved) {
     try {
       appData = JSON.parse(saved);
+      // Migration: ensure completedDates array is initialized
+      if (appData && Array.isArray(appData.tasks)) {
+        appData.tasks.forEach(task => {
+          if (!Array.isArray(task.completedDates)) {
+            task.completedDates = [];
+            if (task.completedDate) {
+              task.completedDates.push(task.completedDate);
+            } else if (task.completed) {
+              task.completedDates.push("2026-10-10");
+            }
+          }
+          delete task.completedDate;
+        });
+      }
       return;
     } catch (e) {
       console.error("Failed to parse v2 data", e);
@@ -116,6 +172,19 @@ function loadData() {
         journals: legacyData.journals || [],
         compassRoles: legacyData.compassRoles || DEFAULT_DATA.compassRoles
       };
+      if (appData && Array.isArray(appData.tasks)) {
+        appData.tasks.forEach(task => {
+          if (!Array.isArray(task.completedDates)) {
+            task.completedDates = [];
+            if (task.completedDate) {
+              task.completedDates.push(task.completedDate);
+            } else if (task.completed) {
+              task.completedDates.push("2026-10-10");
+            }
+          }
+          delete task.completedDate;
+        });
+      }
       saveData(); // Migrate to v2 immediately
       console.log("Successfully restored user data from legacy storage");
       return;
@@ -260,6 +329,7 @@ function setupEventListeners() {
       title: text,
       priority: currentPriority,
       completed: false,
+      completedDates: [],
       role: "일반",
       recurrence: recurrenceObj
     };
@@ -694,6 +764,8 @@ function renderTasks() {
   listB.innerHTML = "";
   listC.innerHTML = "";
 
+  const curDateStr = getCurViewDateStr();
+
   const groups = { A: [], B: [], C: [] };
   appData.tasks.forEach(task => {
     if (groups[task.priority]) groups[task.priority].push(task);
@@ -706,11 +778,12 @@ function renderTasks() {
     document.getElementById(`count${p}`).textContent = items.length;
 
     items.forEach((task, index) => {
-      if (!task.completed) pendingCount++;
+      const isCompleted = isTaskCompletedOnDate(task, curDateStr);
+      if (!isCompleted) pendingCount++;
       const code = `${p}${index + 1}`; // Auto code generation A1, A2, B1...
       
       const card = document.createElement("div");
-      card.className = `task-card ${task.completed ? "completed" : ""}`;
+      card.className = `task-card ${isCompleted ? "completed" : ""}`;
       card.dataset.id = task.id;
       card.dataset.priority = p;
 
@@ -730,7 +803,7 @@ function renderTasks() {
           <i data-lucide="grip-vertical"></i>
         </div>
         <span class="task-code">${code}</span>
-        <div class="task-checkbox" data-id="${task.id}" title="${task.completed ? '완료 취소' : '완료 체크'}">
+        <div class="task-checkbox" data-id="${task.id}" title="${isCompleted ? '완료 취소' : '완료 체크'}">
           <i data-lucide="check"></i>
         </div>
         <div class="task-content">
@@ -944,10 +1017,29 @@ function openEditModal(taskId) {
 function toggleTaskComplete(taskId) {
   const task = appData.tasks.find(t => t.id === taskId);
   if (!task) return;
-  task.completed = !task.completed;
-  saveData();
-  renderTasks();
-  showToast(task.completed ? "우선업무가 완료(√)되었습니다!" : "완료가 취소되었습니다.");
+
+  if (!Array.isArray(task.completedDates)) {
+    task.completedDates = [];
+  }
+
+  const curDateStr = getCurViewDateStr();
+  const isDone = isTaskCompletedOnDate(task, curDateStr);
+
+  if (isDone) {
+    task.completedDates = task.completedDates.filter(d => d !== curDateStr);
+    task.completed = task.completedDates.length > 0;
+    saveData();
+    renderTasks();
+    showToast("완료가 취소되었습니다.");
+  } else {
+    if (!task.completedDates.includes(curDateStr)) {
+      task.completedDates.push(curDateStr);
+    }
+    task.completed = true;
+    saveData();
+    renderTasks();
+    showToast(`우선업무가 완료(√)되었습니다! (${curDateStr} 에만 저장)`);
+  }
 }
 
 function forwardTaskTomorrow(taskId) {
@@ -1246,6 +1338,7 @@ function renderCompass() {
           title: `[Big Rock] ${text}`,
           priority: "A",
           completed: false,
+          completedDates: [],
           role: role
         });
 
@@ -1327,7 +1420,8 @@ function renderMonthlyGoogleCalendar() {
 
     cell.addEventListener("click", () => {
       calSelectedDateStr = dayStr;
-      renderMonthlyGoogleCalendar();
+      currentViewDate = new Date(calCurrentYear, calCurrentMonth, d);
+      updateDateDisplay();
       renderSelectedDateGoogleEvents();
     });
 
@@ -1417,15 +1511,13 @@ function updateDateDisplay() {
 
   renderMonthlyGoogleCalendar();
   renderSchedules();
+  renderTasks();
+  renderJournals();
 }
 
 // Render All Components
 function renderAll() {
   updateDateDisplay();
-  renderTasks();
-  renderSchedules();
-  renderMonthlyGoogleCalendar();
-  renderJournals();
   renderCompass();
 }
 
