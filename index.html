@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Covey">
+  <title>Covey Modern - 차세대 프랭클린 플래너</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/compass.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SortableJS for Drag and Drop -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+  <!-- Desktop Ambient Background & Controls -->
+  <div class="desktop-bg">
+    <header class="desktop-header">
+      <div class="brand">
+        <div class="brand-logo">
+          <i data-lucide="compass"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Covey Modern</h1>
+          <span class="badge">PROTOTYPE v1.0</span>
+        </div>
+      </div>
+      <div class="desktop-actions">
+        <button id="themeToggle" class="icon-btn" title="다크/라이트 모드 전환">
+          <i data-lucide="moon"></i>
+        </button>
+        <button id="resetDemoData" class="btn btn-secondary btn-sm">
+          <i data-lucide="rotate-ccw"></i> 데이터 초기화
+        </button>
+      </div>
+    </header>
+
+    <!-- Mobile Device Simulator Wrapper -->
+    <main class="simulator-container">
+      <div class="device-frame">
+        <!-- Speaker / Dynamic Island -->
+        <div class="device-notch">
+          <div class="notch-camera"></div>
+        </div>
+
+        <!-- Phone App Viewport -->
+        <div class="app-viewport">
+          <!-- App Header -->
+          <header class="app-topbar">
+            <div class="topbar-row">
+              <div class="date-navigator">
+                <button id="prevDayBtn" class="nav-arrow-btn" aria-label="이전 날짜">
+                  <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="current-date-box" id="datePickerTrigger">
+                  <span class="day-text" id="displayDay">Today</span>
+                  <span class="date-full" id="displayFullDate">2026. 10. 10 (토)</span>
+                </div>
+                <button id="nextDayBtn" class="nav-arrow-btn" aria-label="다음 날짜">
+                  <i data-lucide="chevron-right"></i>
+                </button>
+              </div>
+
+              <div class="topbar-actions">
+                <button id="compassToggleBtn" class="action-pill-btn" title="주간 컴파스">
+                  <i data-lucide="compass"></i>
+                  <span>컴파스</span>
+                  <span class="compass-badge" id="compassCountBadge">3</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3-Segment Tab Navigation -->
+            <nav class="segment-tabs">
+              <button class="segment-tab active" data-tab="tasks">
+                <i data-lucide="check-square"></i>
+                <span>우선업무</span>
+                <span class="tab-count" id="taskPendingCount">5</span>
+              </button>
+              <button class="segment-tab" data-tab="schedule">
+                <i data-lucide="clock"></i>
+                <span>타임테이블</span>
+              </button>
+              <button class="segment-tab" data-tab="journal">
+                <i data-lucide="book-open"></i>
+                <span>기록시트</span>
+              </button>
+              <div class="tab-indicator"></div>
+            </nav>
+          </header>
+
+          <!-- Main Scrollable Views Container (Swipeable) -->
+          <div class="views-wrapper" id="viewsWrapper">
+            
+            <!-- VIEW 1: PRIORITIZED DAILY TASKS (A / B / C) -->
+            <section class="view-panel active" id="tasksView">
+              <!-- Task Quick Input Bar -->
+              <div class="quick-input-card">
+                <div class="input-priority-select">
+                  <button type="button" class="priority-chip active" data-priority="A">A (필수)</button>
+                  <button type="button" class="priority-chip" data-priority="B">B (중요)</button>
+                  <button type="button" class="priority-chip" data-priority="C">C (선택)</button>
+                </div>
+                
+                <div class="input-field-row">
+                  <input type="text" id="newTaskInput" placeholder="새로운 우선업무 입력..." autocomplete="off">
+                  <button id="addTaskBtn" class="add-task-btn" title="추가">
+                    <i data-lucide="plus"></i>
+                  </button>
+                </div>
+
+                <!-- Recurrence / Repeat Settings -->
+                <div class="recurrence-section">
+                  <div class="recurrence-toggle-row">
+                    <button type="button" class="repeat-type-chip active" data-repeat="none">
+                      <i data-lucide="calendar"></i> 오늘만
+                    </button>
+                    <button type="button" class="repeat-type-chip" data-repeat="daily">
+                      <i data-lucide="repeat"></i> 매일
+                    </button>
+                    <button type="button" class="repeat-type-chip" data-repeat="weekdays">
+                      <i data-lucide="briefcase"></i> 평일(월~금)
+                    </button>
+                    <button type="button" class="repeat-type-chip" data-repeat="custom">
+                      <i data-lucide="sliders-horizontal"></i> 특정 요일
+                    </button>
+                  </div>
+
+                  <!-- Custom Day Selector (Shown when 'custom' is selected) -->
+                  <div class="custom-days-picker" id="customDaysPicker" style="display: none;">
+                    <button type="button" class="day-chip" data-day="월">월</button>
+                    <button type="button" class="day-chip" data-day="화">화</button>
+                    <button type="button" class="day-chip" data-day="수">수</button>
+                    <button type="button" class="day-chip" data-day="목">목</button>
+                    <button type="button" class="day-chip" data-day="금">금</button>
+                    <button type="button" class="day-chip weekend" data-day="토">토</button>
+                    <button type="button" class="day-chip weekend" data-day="일">일</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Task Groups -->
+              <div class="task-sections-container">
+                <!-- Group A -->
+                <div class="priority-group group-a">
+                  <div class="group-header">
+                    <div class="group-title">
+                      <span class="priority-tag a-tag">A</span>
+                      <h2>반드시 해야 할 일 <span class="group-sub">(Vital Few)</span></h2>
+                    </div>
+                    <span class="group-count" id="countA">0</span>
+                  </div>
+                  <div class="task-list" id="taskListA" data-priority="A">
+                    <!-- Tasks injected by JS -->
+                  </div>
+                </div>
+
+                <!-- Group B -->
+                <div class="priority-group group-b">
+                  <div class="group-header">
+                    <div class="group-title">
+                      <span class="priority-tag b-tag">B</span>
+                      <h2>해야 할 일 <span class="group-sub">(Important)</span></h2>
+                    </div>
+                    <span class="group-count" id="countB">0</span>
+                  </div>
+                  <div class="task-list" id="taskListB" data-priority="B">
+                    <!-- Tasks injected by JS -->
+                  </div>
+                </div>
+
+                <!-- Group C -->
+                <div class="priority-group group-c">
+                  <div class="group-header">
+                    <div class="group-title">
+                      <span class="priority-tag c-tag">C</span>
+                      <h2>하면 좋은 일 <span class="group-sub">(Nice to do)</span></h2>
+                    </div>
+                    <span class="group-count" id="countC">0</span>
+                  </div>
+                  <div class="task-list" id="taskListC" data-priority="C">
+                    <!-- Tasks injected by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="gesture-hint">
+                <i data-lucide="info"></i>
+                <span>오른쪽 스와이프: 완료 (√) | 왼쪽 스와이프: 내일로 이관 (→) | 드래그하여 순서 조정</span>
+              </div>
+            </section>
+
+            <!-- VIEW 2: TIMETABLE & CALENDAR SYNC -->
+            <section class="view-panel" id="scheduleView">
+              <!-- Sub-tab switcher: Daily Timeline vs Monthly Google Calendar -->
+              <div class="schedule-view-switcher">
+                <button type="button" class="sched-subtab active" data-subview="daily">
+                  <i data-lucide="clock"></i> 일간 타임라인
+                </button>
+                <button type="button" class="sched-subtab" data-subview="monthly">
+                  <i data-lucide="calendar-days"></i> 월간 구글 캘린더
+                </button>
+              </div>
+
+              <!-- SUBVIEW A: Daily Hourly Timeline -->
+              <div class="sched-subview-panel active" id="dailyTimelinePanel">
+                <div class="schedule-toolbar">
+                  <div class="sync-status">
+                    <span class="sync-dot"></span>
+                    <span>Google / Apple 캘린더 연동됨</span>
+                  </div>
+                  <button id="addEventQuickBtn" class="btn btn-primary btn-xs">
+                    <i data-lucide="plus"></i> 일정 추가
+                  </button>
+                </div>
+
+                <!-- Hourly Timeline (06:00 ~ 23:00) -->
+                <div class="timeline-container" id="timelineContainer">
+                  <!-- Current Time Indicator -->
+                  <div class="now-indicator" id="nowIndicator">
+                    <div class="now-dot"></div>
+                    <div class="now-line"></div>
+                  </div>
+                  <!-- Time slots injected by JS -->
+                </div>
+              </div>
+
+              <!-- SUBVIEW B: Monthly Google Calendar (Pure Google Events Only) -->
+              <div class="sched-subview-panel" id="monthlyCalendarPanel" style="display: none;">
+                <div class="gcal-banner">
+                  <div class="gcal-brand">
+                    <svg class="gcal-logo" viewBox="0 0 24 24" width="18" height="18">
+                      <path fill="#4285F4" d="M19.5 4H18V2h-2v2H8V2H6v2H4.5C3.12 4 2 5.12 2 6.5v13C2 20.88 3.12 22 4.5 22h15c1.38 0 2.5-1.12 2.5-2.5v-13C22 5.12 20.88 4 19.5 4z"/>
+                      <path fill="#FFF" d="M12 9h5v2h-5zM7 9h3v2H7zM7 13h3v2H7zM12 13h5v2h-5zM7 17h3v2H7zM12 17h5v2h-5z"/>
+                    </svg>
+                    <span>Google Calendar 전용 월간 뷰</span>
+                  </div>
+                  <span class="gcal-badge">순수 구글 일정만 표시</span>
+                </div>
+
+                <!-- Monthly Calendar Controls -->
+                <div class="month-nav-card">
+                  <button type="button" class="nav-arrow-btn" id="prevMonthBtn">
+                    <i data-lucide="chevron-left"></i>
+                  </button>
+                  <h3 id="currentMonthYearLabel">2026년 10월</h3>
+                  <button type="button" class="nav-arrow-btn" id="nextMonthBtn">
+                    <i data-lucide="chevron-right"></i>
+                  </button>
+                </div>
+
+                <!-- Month Grid -->
+                <div class="month-calendar-grid">
+                  <div class="weekday-header">
+                    <span class="sun">일</span>
+                    <span>월</span>
+                    <span>화</span>
+                    <span>수</span>
+                    <span>목</span>
+                    <span>금</span>
+                    <span class="sat">토</span>
+                  </div>
+                  <div class="calendar-days-matrix" id="calendarDaysMatrix">
+                    <!-- Days and Google Events injected by JS -->
+                  </div>
+                </div>
+
+                <!-- Selected Date's Google Events Detail -->
+                <div class="selected-day-events-box">
+                  <div class="day-events-header">
+                    <h4 id="selectedDateEventsTitle">10월 10일 (토) 구글 일정</h4>
+                    <span class="events-count" id="selectedDateEventsCount">2개 일정</span>
+                  </div>
+                  <div class="gcal-events-list" id="selectedDateEventsList">
+                    <!-- Events injected by JS -->
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- VIEW 3: DAILY RECORD SHEET (JOURNAL / LOGS) -->
+            <section class="view-panel" id="journalView">
+              <div class="journal-input-card">
+                <div class="journal-tags-row">
+                  <button type="button" class="j-tag-chip active" data-tag="memo">📌 메모</button>
+                  <button type="button" class="j-tag-chip" data-tag="meeting">🤝 미팅</button>
+                  <button type="button" class="j-tag-chip" data-tag="idea">💡 아이디어</button>
+                  <button type="button" class="j-tag-chip" data-tag="reflection">✨ 감사/회고</button>
+                </div>
+                <div class="journal-field-row">
+                  <textarea id="newJournalInput" placeholder="오늘 일어난 일, 미팅 내용, 생각 기록..." rows="2"></textarea>
+                  <button id="addJournalBtn" class="btn btn-primary btn-sm">
+                    <i data-lucide="send"></i> 기록
+                  </button>
+                </div>
+              </div>
+
+              <!-- Journal Timeline Feed -->
+              <div class="journal-feed" id="journalFeed">
+                <!-- Notes injected by JS -->
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+        <!-- Weekly Compass Slide-over Drawer -->
+        <div class="compass-drawer-backdrop" id="compassBackdrop"></div>
+        <aside class="compass-drawer" id="compassDrawer">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <i data-lucide="compass"></i>
+              <div>
+                <h3>주간 컴파스 (Weekly Compass)</h3>
+                <p>이번 주 나의 역할별 핵심 과제 (Big Rocks)</p>
+              </div>
+            </div>
+            <button id="closeCompassBtn" class="icon-btn">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+
+          <div class="drawer-content">
+            <div class="compass-roles-list" id="compassRolesList">
+              <!-- Roles and Big Rocks injected by JS -->
+            </div>
+
+            <!-- Add Role/Rock Section -->
+            <div class="add-rock-box">
+              <h4>+ 새 핵심 과제(Big Rock) 등록</h4>
+              <div class="rock-input-form">
+                <select id="roleSelector">
+                  <option value="직무/비즈니스">👨‍💼 직무 / 비즈니스</option>
+                  <option value="가족/관계">👨‍👩‍👧 가족 / 관계</option>
+                  <option value="자기계발/건강">🧘 자기계발 / 건강</option>
+                  <option value="재정/자산">💰 재정 / 자산</option>
+                </select>
+                <div class="rock-input-row">
+                  <input type="text" id="newRockInput" placeholder="이번 주에 꼭 달성할 핵심 목표...">
+                  <button id="addRockBtn" class="btn btn-primary btn-sm">추가</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Event Add / Edit Modal -->
+        <div class="modal-backdrop" id="eventModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3 id="eventModalTitle">새 일정 추가</h3>
+              <button class="modal-close" id="closeEventModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>일정 제목</label>
+                <input type="text" id="eventTitleInput" placeholder="예: 팀 주간 스프린트 회의">
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                  <label>시작 시간</label>
+                  <input type="time" id="eventStartTime" value="14:00">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label>종료 시간</label>
+                  <input type="time" id="eventEndTime" value="15:30">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>캘린더 구분</label>
+                <select id="eventCalendarType">
+                  <option value="work">💼 업무 (Google Calendar)</option>
+                  <option value="personal">🏠 개인 (Apple Calendar)</option>
+                  <option value="timeblock">🎯 우선업무 타임블록 (Covey)</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+              <button class="btn btn-secondary" id="deleteEventBtn" style="color: var(--color-a-primary); display: none;">
+                <i data-lucide="trash-2"></i> 삭제
+              </button>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" id="cancelEventBtn">취소</button>
+                <button class="btn btn-primary" id="saveEventBtn">일정 등록</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Task Modal -->
+        <div class="modal-backdrop" id="editTaskModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3>우선업무 편집</h3>
+              <button class="modal-close" id="closeEditModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>업무 제목</label>
+                <input type="text" id="editTaskTitleInput" placeholder="업무 내용을 입력하세요">
+              </div>
+
+              <div class="form-group">
+                <label>우선순위 등급 (Priority)</label>
+                <div class="input-priority-select">
+                  <button type="button" class="priority-chip" id="editPriorityA" data-priority="A">A (필수)</button>
+                  <button type="button" class="priority-chip" id="editPriorityB" data-priority="B">B (중요)</button>
+                  <button type="button" class="priority-chip" id="editPriorityC" data-priority="C">C (선택)</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>역할 (Role / Compass)</label>
+                <select id="editTaskRoleSelect">
+                  <option value="일반">일반 업무</option>
+                  <option value="직무/비즈니스">👨‍💼 직무 / 비즈니스</option>
+                  <option value="가족/관계">👨‍👩‍👧 가족 / 관계</option>
+                  <option value="자기계발/건강">🧘 자기계발 / 건강</option>
+                  <option value="재정/자산">💰 재정 / 자산</option>
+                  <option value="개인">🌱 개인</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>반복 주기 (Recurrence)</label>
+                <div class="recurrence-section">
+                  <div class="recurrence-toggle-row">
+                    <button type="button" class="repeat-type-chip" id="editRepeatNone" data-repeat="none">
+                      <i data-lucide="calendar"></i> 오늘만
+                    </button>
+                    <button type="button" class="repeat-type-chip" id="editRepeatDaily" data-repeat="daily">
+                      <i data-lucide="repeat"></i> 매일
+                    </button>
+                    <button type="button" class="repeat-type-chip" id="editRepeatWeekdays" data-repeat="weekdays">
+                      <i data-lucide="briefcase"></i> 평일(월~금)
+                    </button>
+                    <button type="button" class="repeat-type-chip" id="editRepeatCustom" data-repeat="custom">
+                      <i data-lucide="sliders-horizontal"></i> 특정 요일
+                    </button>
+                  </div>
+
+                  <!-- Edit Custom Days Picker -->
+                  <div class="custom-days-picker" id="editCustomDaysPicker" style="display: none;">
+                    <button type="button" class="day-chip edit-day-chip" data-day="월">월</button>
+                    <button type="button" class="day-chip edit-day-chip" data-day="화">화</button>
+                    <button type="button" class="day-chip edit-day-chip" data-day="수">수</button>
+                    <button type="button" class="day-chip edit-day-chip" data-day="목">목</button>
+                    <button type="button" class="day-chip edit-day-chip" data-day="금">금</button>
+                    <button type="button" class="day-chip edit-day-chip weekend" data-day="토">토</button>
+                    <button type="button" class="day-chip edit-day-chip weekend" data-day="일">일</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="cancelEditBtn">취소</button>
+              <button class="btn btn-primary" id="saveEditBtn">변경사항 저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Journal Record Modal -->
+        <div class="modal-backdrop" id="editJournalModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3>기록시트 내용 수정</h3>
+              <button class="modal-close" id="closeEditJournalModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+              <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                  <label>기록 시간</label>
+                  <input type="time" id="editJournalTimeInput">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>카테고리 태그</label>
+                <div class="journal-tags-row">
+                  <button type="button" class="j-tag-chip edit-j-tag" data-tag="memo">📌 메모</button>
+                  <button type="button" class="j-tag-chip edit-j-tag" data-tag="meeting">🤝 미팅</button>
+                  <button type="button" class="j-tag-chip edit-j-tag" data-tag="idea">💡 아이디어</button>
+                  <button type="button" class="j-tag-chip edit-j-tag" data-tag="reflection">✨ 감사/회고</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>기록 내용</label>
+                <textarea id="editJournalContentInput" rows="4" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px; font-size: 0.85rem; color: var(--text-primary); resize: none; font-family: inherit;"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="cancelEditJournalBtn">취소</button>
+              <button class="btn btn-primary" id="saveEditJournalBtn">기록 수정 저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete Recurring Task Modal / Action Sheet -->
+        <div class="modal-backdrop" id="deleteChoiceModal">
+          <div class="modal-card delete-modal-card">
+            <div class="modal-header">
+              <div class="delete-modal-title">
+                <i data-lucide="alert-triangle" class="warn-icon"></i>
+                <h3>반복 업무 삭제</h3>
+              </div>
+              <button class="modal-close" id="closeDeleteModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+              <p class="delete-task-desc" id="deleteTaskTitleText">"업무 제목"</p>
+              <p class="delete-modal-subtext">이 업무는 반복 설정된 업무입니다. 삭제할 범위를 선택해 주세요.</p>
+              
+              <div class="delete-options-list">
+                <button type="button" class="delete-option-btn btn-delete-today" id="btnDeleteTodayOnly">
+                  <div class="option-icon"><i data-lucide="calendar-x"></i></div>
+                  <div class="option-info">
+                    <strong>오늘 항목만 삭제</strong>
+                    <span>오늘 리스트에서만 제외하고, 향후 반복 일정은 유지합니다.</span>
+                  </div>
+                </button>
+
+                <button type="button" class="delete-option-btn btn-delete-all" id="btnDeleteAllFuture">
+                  <div class="option-icon"><i data-lucide="trash-2"></i></div>
+                  <div class="option-info">
+                    <strong>향후 모든 반복 일정 삭제</strong>
+                    <span>이 업무의 모든 향후 예정 일정을 완전히 삭제합니다.</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="cancelDeleteBtn">취소</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task Move/Forward Toast -->
+        <div class="toast-notification" id="appToast">
+          <i data-lucide="check-circle" id="toastIcon"></i>
+          <span id="toastMessage">작업이 처리되었습니다.</span>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
