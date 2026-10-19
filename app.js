@@ -91,6 +91,47 @@ function isTaskCompletedOnDate(task, dateStr) {
   return false;
 }
 
+// Check if task should be displayed on a specific date (dateStr: YYYY-MM-DD or Date object)
+function isTaskScheduledOnDate(task, targetDate) {
+  if (!task) return false;
+  
+  const d = (targetDate instanceof Date) ? targetDate : new Date(targetDate + "T00:00:00");
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const date = String(d.getDate()).padStart(2, "0");
+  const targetDateStr = `${year}-${month}-${date}`;
+
+  // If this specific date was excluded (e.g. "오늘 항목만 삭제")
+  if (Array.isArray(task.excludedDates) && task.excludedDates.includes(targetDateStr)) {
+    return false;
+  }
+
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+  const dayName = dayNames[d.getDay()]; // "일", "월", "화", ...
+  const dayOfWeek = d.getDay(); // 0: Sun, 1~5: Mon~Fri, 6: Sat
+
+  const rec = task.recurrence;
+  // If no recurrence specified, default to everyday/all days
+  if (!rec || !rec.type || rec.type === "none" || rec.type === "daily") {
+    return true;
+  }
+
+  // Weekdays only (월~금)
+  if (rec.type === "weekdays") {
+    return dayOfWeek >= 1 && dayOfWeek <= 5;
+  }
+
+  // Custom days (e.g. ["월", "수", "금"] or ["화", "목", "토"])
+  if (rec.type === "custom") {
+    if (Array.isArray(rec.days) && rec.days.length > 0) {
+      return rec.days.includes(dayName);
+    }
+    return true;
+  }
+
+  return true;
+}
+
 // Google Calendar Exclusive Monthly Events (Only past/today events, future removed per request)
 const GOOGLE_CALENDAR_EVENTS = [
   { id: "g1", date: "2026-10-06", time: "10:00 ~ 11:30", title: "구글 캘린더: Q4 제품 로드맵 회의", location: "Google Meet" },
@@ -109,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if ("caches" in window) {
     caches.keys().then((names) => {
       names.forEach((name) => {
-        if (name !== "covey-modern-cache-v5") {
+        if (name !== "covey-modern-cache-v6") {
           caches.delete(name);
         }
       });
@@ -739,7 +780,9 @@ function setupSortables() {
 
 // Sync State from DOM after Drag and Drop
 function syncTasksFromDOM() {
-  const newTasks = [];
+  const renderedTaskIds = new Set();
+  const reorderedTasks = [];
+
   ["A", "B", "C"].forEach(priority => {
     const listEl = document.getElementById(`taskList${priority}`);
     if (!listEl) return;
@@ -749,12 +792,15 @@ function syncTasksFromDOM() {
       const originalTask = appData.tasks.find(t => t.id === taskId);
       if (originalTask) {
         originalTask.priority = priority;
-        newTasks.push(originalTask);
+        reorderedTasks.push(originalTask);
+        renderedTaskIds.add(taskId);
       }
     });
   });
 
-  appData.tasks = newTasks;
+  // Preserve tasks that were not rendered on this specific day (e.g. other days' recurring tasks)
+  const nonRenderedTasks = appData.tasks.filter(t => !renderedTaskIds.has(t.id));
+  appData.tasks = [...reorderedTasks, ...nonRenderedTasks];
   saveData();
   renderTasks();
 }
@@ -775,7 +821,10 @@ function renderTasks() {
 
   const groups = { A: [], B: [], C: [] };
   appData.tasks.forEach(task => {
-    if (groups[task.priority]) groups[task.priority].push(task);
+    // Only include tasks scheduled for the current view date (e.g. daily, weekdays, or specific custom days)
+    if (isTaskScheduledOnDate(task, currentViewDate)) {
+      if (groups[task.priority]) groups[task.priority].push(task);
+    }
   });
 
   let pendingCount = 0;
@@ -1087,13 +1136,26 @@ function performDelete(taskId, mode) {
   if (taskIndex === -1) return;
   const task = appData.tasks[taskIndex];
 
+  if (mode === "today_only") {
+    // Exclude current view date from task without deleting future recurrences
+    if (!Array.isArray(task.excludedDates)) {
+      task.excludedDates = [];
+    }
+    const curDateStr = getCurViewDateStr();
+    if (!task.excludedDates.includes(curDateStr)) {
+      task.excludedDates.push(curDateStr);
+    }
+    saveData();
+    renderTasks();
+    showToast(`'${task.title}' 오늘 목록에서만 제외되었습니다. (향후 반복 유지)`);
+    return;
+  }
+
   appData.tasks.splice(taskIndex, 1);
   saveData();
   renderTasks();
 
-  if (mode === "today_only") {
-    showToast(`'${task.title}' 오늘 목록에서만 삭제되었습니다. (향후 반복 유지)`);
-  } else if (mode === "all_future") {
+  if (mode === "all_future") {
     showToast(`'${task.title}' 향후 모든 반복 일정이 삭제되었습니다.`);
   } else {
     showToast(`'${task.title}' 업무가 삭제되었습니다.`);
