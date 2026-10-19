@@ -58,16 +58,23 @@ let editingJournalId = null;
 let editJournalSelectedTag = "memo";
 let editingScheduleId = null;
 
-// Date Navigation State
-let currentViewDate = new Date(2026, 9, 10); // 2026-10-10 (Base Demo Date)
-const TODAY_BASE_DATE = new Date(2026, 9, 10);
+// Helper: format Date to YYYY-MM-DD in local time
+function formatDateToStr(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const date = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+// Date Navigation State (Always reflects real today)
+const realNow = new Date();
+const TODAY_BASE_DATE = new Date(realNow.getFullYear(), realNow.getMonth(), realNow.getDate());
+let currentViewDate = new Date(TODAY_BASE_DATE);
+const TODAY_STR = formatDateToStr(TODAY_BASE_DATE);
 
 // Helper: get current view date string (YYYY-MM-DD)
 function getCurViewDateStr() {
-  const year = currentViewDate.getFullYear();
-  const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
-  const date = String(currentViewDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
+  return formatDateToStr(currentViewDate);
 }
 
 // Check if task is completed on a specific view date
@@ -92,9 +99,9 @@ const GOOGLE_CALENDAR_EVENTS = [
   { id: "g4", date: "2026-10-10", time: "14:00 ~ 15:00", title: "구글 캘린더: 신규 팀원 1:1 면담", location: "소회의실 B" }
 ];
 
-let calCurrentYear = 2026;
-let calCurrentMonth = 9; // 0-indexed (9 = October)
-let calSelectedDateStr = "2026-10-10";
+let calCurrentYear = TODAY_BASE_DATE.getFullYear();
+let calCurrentMonth = TODAY_BASE_DATE.getMonth(); // 0-indexed
+let calSelectedDateStr = TODAY_STR;
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
@@ -102,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if ("caches" in window) {
     caches.keys().then((names) => {
       names.forEach((name) => {
-        if (name !== "covey-modern-cache-v4") {
+        if (name !== "covey-modern-cache-v5") {
           caches.delete(name);
         }
       });
@@ -1113,7 +1120,7 @@ function renderSchedules() {
   const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
   const date = String(currentViewDate.getDate()).padStart(2, "0");
   const curDateStr = `${year}-${month}-${date}`;
-  const isToday = (curDateStr === "2026-10-10");
+  const isToday = (curDateStr === TODAY_STR);
 
   // Only show sample default schedules for today (or schedules specifically matched to curDateStr)
   const activeSchedules = isToday ? appData.schedules : appData.schedules.filter(s => s.date === curDateStr);
@@ -1201,7 +1208,7 @@ function renderJournals() {
   const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
   const date = String(currentViewDate.getDate()).padStart(2, "0");
   const curDateStr = `${year}-${month}-${date}`;
-  const isToday = (curDateStr === "2026-10-10");
+  const isToday = (curDateStr === TODAY_STR);
 
   const activeJournals = isToday ? appData.journals : appData.journals.filter(j => j.date === curDateStr);
 
@@ -1375,8 +1382,7 @@ function renderMonthlyGoogleCalendar() {
   const totalDaysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
   const prevMonthTotalDays = new Date(calCurrentYear, calCurrentMonth, 0).getDate();
 
-  const today = new Date();
-  const todayStr = "2026-10-10"; // Base demo date
+  const todayStr = TODAY_STR;
 
   // Previous month overflow days
   for (let i = firstDayIndex - 1; i >= 0; i--) {
@@ -1489,9 +1495,10 @@ function updateDateDisplay() {
   const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
   const dayName = dayNames[currentViewDate.getDay()];
 
-  // Calculate Difference with Base Today (2026-10-10)
-  const timeDiff = currentViewDate.getTime() - TODAY_BASE_DATE.getTime();
-  const dayDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+  // Calculate Difference with Real Today
+  const viewMidnight = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth(), currentViewDate.getDate());
+  const todayMidnight = new Date(TODAY_BASE_DATE.getFullYear(), TODAY_BASE_DATE.getMonth(), TODAY_BASE_DATE.getDate());
+  const dayDiff = Math.round((viewMidnight - todayMidnight) / (1000 * 3600 * 24));
 
   let dayLabel = "Today";
   if (dayDiff === 0) dayLabel = "Today";
