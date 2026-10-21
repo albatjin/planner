@@ -9,12 +9,7 @@ const DEFAULT_DATA = {
     { id: "t6", title: "생산성 향상 신간 도서 독서 (30분)", priority: "C", completedDates: [], role: "자기계발/건강", recurrence: { type: "weekdays" } },
     { id: "t7", title: "서재 책상 및 데스크탑 정리", priority: "C", completedDates: [], role: "개인", recurrence: { type: "none" } }
   ],
-  schedules: [
-    { id: "s1", title: "Google Sync: 전략기획팀 주간 회의", startTime: "09:00", endTime: "10:30", type: "work" },
-    { id: "s2", title: "Covey Block: [A1] Q4 사업계획서 집중 작성", startTime: "10:30", endTime: "12:00", type: "timeblock" },
-    { id: "s3", title: "점심 식사 & 티타임", startTime: "12:00", endTime: "13:00", type: "personal" },
-    { id: "s4", title: "Google Sync: 팀원 1:1 면담", startTime: "14:00", endTime: "15:00", type: "work" }
-  ],
+  schedules: [], // Emptied sample schedules
   journals: [], // Completely emptied sample journals
   compassRoles: [
     {
@@ -202,6 +197,10 @@ function loadData() {
           }
           delete task.completedDate;
         });
+      }
+      // Migration: clean up legacy sample schedules if present
+      if (appData && Array.isArray(appData.schedules)) {
+        appData.schedules = appData.schedules.filter(s => !["s1", "s2", "s3", "s4"].includes(s.id));
       }
       return;
     } catch (e) {
@@ -729,6 +728,7 @@ function setupEventListeners() {
       // Create new schedule
       appData.schedules.push({
         id: "s_" + Date.now(),
+        date: getCurViewDateStr(),
         title: title,
         startTime: startTime,
         endTime: endTime,
@@ -1184,10 +1184,12 @@ function renderSchedules() {
   const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
   const date = String(currentViewDate.getDate()).padStart(2, "0");
   const curDateStr = `${year}-${month}-${date}`;
-  const isToday = (curDateStr === TODAY_STR);
 
-  // Only show sample default schedules for today (or schedules specifically matched to curDateStr)
-  const activeSchedules = isToday ? appData.schedules : appData.schedules.filter(s => s.date === curDateStr);
+  // Only show schedules that belong to this date (and filter out legacy sample IDs if present)
+  const activeSchedules = (appData.schedules || []).filter(s => {
+    if (["s1", "s2", "s3", "s4"].includes(s.id)) return false;
+    return s.date === curDateStr;
+  });
 
   hours.forEach(hour => {
     const slot = document.createElement("div");

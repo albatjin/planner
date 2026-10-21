@@ -1,5 +1,5 @@
 // Service Worker for Covey Modern - Offline Caching (Network-First Strategy)
-const CACHE_NAME = "covey-modern-cache-v7";
+const CACHE_NAME = "covey-modern-cache-v8";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
