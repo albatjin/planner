@@ -457,9 +457,11 @@ function setupEventListeners() {
 
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const entryDate = getCurViewDateStr();
 
     appData.journals.unshift({
       id: "j_" + Date.now(),
+      date: entryDate,
       time: timeStr,
       tag: currentJournalTag,
       content: content
@@ -1270,9 +1272,9 @@ function renderJournals() {
   const month = String(currentViewDate.getMonth() + 1).padStart(2, "0");
   const date = String(currentViewDate.getDate()).padStart(2, "0");
   const curDateStr = `${year}-${month}-${date}`;
-  const isToday = (curDateStr === TODAY_STR);
 
-  const activeJournals = isToday ? appData.journals : appData.journals.filter(j => j.date === curDateStr);
+  // Only display journals written for the current viewing date (do not display previous date records on Today)
+  const activeJournals = (appData.journals || []).filter(j => j.date === curDateStr);
 
   if (activeJournals.length === 0) {
     feed.innerHTML = `
